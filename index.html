@@ -10,14 +10,65 @@
     <![endif]-->
   </head>
   <body>
+	<div><h1>Horse Diary</h1></div>
+	<div id="mainmenu"></div>
+    <div>
+	<form>
+		<div id="datalist" name="datalist"></div>  
+		<div id="singledata">
+			<div id="table" name="table"></div>
+			<div><hr /></div>
+			<div id="record_info">
+				<div>DBTimestamp <span id="DBTimestamp"></span></div>
+				<div>DBversion  <span id="DBversion"></span></div>
+				<div>DBstate <span id="DBstate"></span></div>
+				<div>DBok <span id="DBok"></span></div>
+				<div>DBreason <span id="DBreason"></span></div>
+				<div>_id <span id="_id"></span></div>
+				<div>_rev <span id="_rev"></span></div>
+			</div>
+			<div id="action">
+				<table>
+					<tr>  
+						<td></td>  
+						<td>  
+							<input type="button" name="addBtn" value="Add" id="addBtn" />  
+							<input type="button" name="updateBtn" value="Update" id="updateBtn" />  
+							<input type="button" name="deleteBtn" value="Delete" id="deleteBtn" />  
+							<input type="button" name="clearBtn" value="Clear" id="clearBtn" />  
+		  
+						</td>  
+					</tr>  
+		  
+		  
+					<tr>  
+						<td colspan="2">  
+							<div id="result"></div>  
+						</td>  
+					</tr>  
+				</table>
+			</div>
+		</div>
+    </form>  
+	</div>
     <section id="todoapp">
       <header id="header">
 	<h1>todos</h1>
-	<input id="new-todo" placeholder="What needs to be done?" autofocus>
+	<input id="new-todo" placeholder="What needs to be done?">
       </header>
       <section id="main">
 	<ul id="todo-list"></ul>
       </section>
+    </section>
+    <section id="para">
+      <header id="header">
+	<h1>Params</h1>
+	<input id="new-para" placeholder="What Para?">
+      </header>
+      <section id="main">
+	<ul id="para-list"></ul>
+      </section>
+    </section>
       <footer id="footer">
 	<span id="todo-count"></span>
         <div id="sync-wrapper">
@@ -25,7 +76,6 @@
           <div id="sync-error">There was a problem syncing</div>
         </div>
       </footer>
-    </section>
     <footer id="info">
       <p>Double-click to edit a todo</p>
       <p>Template by <a href="http://github.com/sindresorhus">Sindre Sorhus</a></p>
@@ -34,8 +84,10 @@
     </footer>
     <img src="style/plain_sign_in_blue.png" alt="login" id="signin" />
     <img src="style/plain_sign_in_blue.png" id="signout" style="display:none" />
-    <script src="js/pouchdb.js"></script>
+     <script src="js/jquery-3.2.1.min.js"></script>
+   <script src="js/pouchdb.js"></script>
     <script src="js/pouchdb.authentication.js"></script>
+    <script src="js/cookie.js"></script>
     <script src="js/base.js"></script>
     <script src="js/app.js"></script>
   </body>

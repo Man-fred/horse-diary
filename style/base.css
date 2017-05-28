@@ -422,3 +422,6 @@ label[for='toggle-all'] {
 [data-sync-state=error] #sync-error {
   display: block;
 }
+		.t_seite {
+			display: none;
+                }
