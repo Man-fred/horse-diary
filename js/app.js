@@ -7,10 +7,33 @@
     var syncDom = document.getElementById('sync-wrapper');
 
     // EDITING STARTS HERE (you dont need to edit anything above this line)
+    var dbServer = 'http://fhem.fritz.box';
+    var dbPort = '5984';
     var dbName = 'p-todo';
+    var dbUser = 'p-todo';
+    var dbPass = 'demo01';
+    var dbId = Math.random();
     var db = new PouchDB(dbName);
-    var remote = new PouchDB('http://fhem.fritz.box:5984/' + dbName, {skip_setup: true});
-    remote.login('p-todo', 'demo01', function (err, response) {
+
+    db.get(dbId + '_login').then(function (doc) {
+        // handle doc
+    }).catch(function (err) {
+        db.put({
+            _id: dbId + '_login',
+            type: 'db',
+            dbUser: dbUser,
+            dbPass: dbPass,
+            title: dbId + '_login'
+        }).then(function (response) {
+            // handle response
+        }).catch(function (err) {
+            console.log(err);
+        });
+    });
+
+
+    var remote = new PouchDB(dbServer + ':' + dbPort + '/' + dbName, {skip_setup: true});
+    remote.login(dbUser, dbPass, function (err, response) {
         if (err) {
             if (err.name === 'unauthorized') {
                 // name or password incorrect
@@ -88,7 +111,6 @@
             syncDom.innerHTML = 'complete ' + info;
         });
     }
-
     // EDITING STARTS HERE (you dont need to edit anything below this line)
 
     // There was some form or error syncing
@@ -179,71 +201,7 @@
     addEventListeners();
     showTodos();
     if (syncDom) {
-        if (remote) {
-            sync();
-        } else {
-            syncError();
-        }
+        sync();
     }
-
-  // Host that the couch-persona server is running on
-  var authHost = 'http://127.0.0.1:3000';
-
-  var loggedIn = function(result) {
-    console.log('logged in:', result);
-    remoteCouch = result.dbUrl;
-    cookie = result.authToken.replace('HttpOnly', '');
-    sync();
-  };
-
-  var loggedOut = function() {
-    console.log('logged out!');
-  };
-
-  function simpleXhrSentinel(xhr) {
-    return function() {
-      if (xhr.readyState !== 4) {
-        return;
-      }
-      if (xhr.status == 200) {
-        var result = {};
-        try {
-          result = JSON.parse(xhr.responseText);
-        } catch(e) {}
-        loggedIn(result);
-      } else {
-        navigator.id.logout();
-        loggedOut();
-      }
-    };
-    }
-
-  function verifyAssertion(assertion) {
-    var xhr = new XMLHttpRequest();
-    var param = 'assert=' + assertion;
-    xhr.open('POST', authHost + '/persona/sign-in', true);
-    xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    xhr.setRequestHeader("Content-length", param.length);
-    xhr.setRequestHeader("Connection", "close");
-    xhr.send(param);
-    xhr.onreadystatechange = simpleXhrSentinel(xhr);
-  }
-
-  function signoutUser() {
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", authHost + '/persona/sign-out', true);
-    xhr.send(null);
-    xhr.onreadystatechange = simpleXhrSentinel(xhr);
-  }
-
-  navigator.id.watch({
-    onlogin: verifyAssertion,
-    onlogout: signoutUser
-  });
-
-  var signinLink = document.getElementById('signin');
-  var signoutLink = document.getElementById('signout');
-  signinLink.onclick = function() { navigator.id.request(); };
-  signoutLink.onclick = function() { navigator.id.logout(); };
 
 })();
