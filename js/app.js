@@ -477,9 +477,17 @@ var myApp = {
             if (doc) {
                 setSync(doc, 'del');
                 doc.DBdeleted = true;
-                db.put(doc);
-                $('#result').html('Record No. ' + _id + ' Deleted Successfully');
-                show_all(seite);
+                db.put(doc).then(function (doc2) {
+                    // handle doc
+                    if (doc2) {
+                        $('#result').html('Record No. ' + doc._id + ' Deleted Successfully');
+                        show_all(seite);
+                    }
+                    ;
+                }).catch(function (err) {
+                    console.log(err);
+                });
+                ;
             }
             ;
         }).catch(function (err) {
@@ -505,7 +513,7 @@ var myApp = {
         result += '<input type="button" value="Syncronisation" onclick="show_element(\'sync\')" />';
         result += '<input type="button" name="m_send" value="Send to Server" id="m_send" onclick="CouchdbStoreWrite()" />';
         result += '<input type="button" name="m_read" value="Read from Server" id="m_read" onclick="CouchdbStoreRead()" />';
-        result += '<input type="checkbox" id="showDeleted" onchange="show_element(\'' + seite + '\')"> showDeleted';
+        result += '<input type="checkbox" id="showDeleted" onchange="show_element(\'\')"> showDeleted';
         $("#mainmenu").html(result);
     }
 
@@ -544,7 +552,7 @@ function show_all_header(s) {
     table += '</table>';
     table += '<table><thead>';
     //table += '<th>ID</th>';
-    var cb = $('#showDeleted')
+    //var cb = $('#showDeleted');
     if ($('#showDeleted').is(':checked')) {
         table += '<th>Deleted?</th>';
     }
@@ -557,16 +565,27 @@ function show_all_header(s) {
 
 function show_all(table) {
     console.log(dbId + '_' + table);
-    db.allDocs({
-        include_docs: true
-        , descending: true
-        , startkey: dbId + '_' + table + '3'//+ table 
-        , endkey: dbId + '_' + table  //+ table
+//    db.allDocs({
+//        include_docs: true
+//        , descending: true
+//        , startkey: dbId + '_' + table + '3'//+ table 
+//        , endkey: dbId + '_' + table  //+ table
+//    PouchDB.debug.enable('pouchdb:find');
+    
+    var mySelektor = {
+            _id: {$gte: dbId + '_' + table, $lte: dbId + '_' + table +'3'}
+            //, DBdeleted: {$exists: false}
+        };
+    if (!$('#showDeleted').is(':checked')) {
+        mySelektor.DBdeleted = {$exists: false};
+    }
+    db.find({
+        selector: mySelektor
     }).then(function (result) {
         var first = true;
         var table = "";
-        $.each(result.rows, function () {
-            var s = this.doc;
+        $.each(result.docs, function () {
+            var s = this;
             console.log(s);
             if (first) {
                 first = false;
@@ -602,9 +621,11 @@ function show_all(table) {
 
 function show_element(aktiveSeite) {
     if (aktiveSeite !== seite) {
-        $('#t_' + seite).hide();
-        seite = aktiveSeite;
-        $('#t_' + seite).show();
+        if (aktiveSeite !== "") {
+            $('#t_' + seite).hide();
+            seite = aktiveSeite;
+            $('#t_' + seite).show();
+        }
         $.each(myApp[seite].header, function () {
             if (this.select) {
                 select(this.select, seite, this.name, this.field);
@@ -648,7 +669,23 @@ function show_seite(aktiveSeite) {
 
 
 function select(table, id, name, field) {
-    show_docs(table, id, name, field);
+    db.find({
+        selector: {
+            _id: {$gte: dbId + '_' + table, $lte: dbId + '_' + table +'3'},
+            DBdeleted: {$exists: false}
+        }
+
+    }).then(function (result) {
+        $("#" + id + '_' + name).empty();
+        myApp[table].data = [];
+        $("#" + id + '_' + name).append($('<option></option>'));
+        $.each(result.docs, function () {
+                    $("#" + id + '_' + name).append($('<option></option>').val(this['_id']).text(this[field])); //  selected="selected"
+                    myApp[table].data[this['_id']] = this[field];
+        });
+    }).catch(function (err) {
+        console.log(err);
+    });
 }
 
 function show_data(id) {
@@ -676,24 +713,7 @@ function show_data(id) {
     }).catch(function (err) {
         console.log(err);
     });
-}
-;
-function show_docs(table, id, name, field) {
-    db.allDocs({
-        include_docs: true,
-        descending: true,
-        startkey: dbId + '_' + table + '3',
-        endkey: dbId + '_' + table},
-            function (err, result) {
-                $("#" + id + '_' + name).empty();
-                myApp[table].data = [];
-                $("#" + id + '_' + name).append($('<option></option>'));
-                $.each(result, function () {
-                    $("#" + id + '_' + name).append($('<option></option>').val(this['_id']).text(this[field])); //  selected="selected"
-                    myApp[table].data[this['_id']] = this[field];
-                });
-            });
-}
+};
 
 function setSync(myObj, state) {
     function S4() {
