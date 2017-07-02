@@ -1,10 +1,11 @@
 var db;
-var dbId;
+var dbIdPublic;
+var dbIdPrivate;
 var seite = "";
 var myApp = {
     horse: {
         name: "horse",
-        title: "Horses",
+        title: "Pferde",
         menu: true,
         fields: {
             name: {
@@ -25,7 +26,7 @@ var myApp = {
     },
     persons: {
         name: "persons",
-        title: "Persons",
+        title: "Beteiligte",
         menu: true,
         header: {
             horse: {
@@ -52,7 +53,7 @@ var myApp = {
     },
     students: {
         name: "students",
-        title: "Students",
+        title: "Kontakte",
         menu: true,
         fields: {
             firstName: {
@@ -110,9 +111,29 @@ var myApp = {
         title: "ToDo",
         menu: true,
         fields: {
+            job: {
+                name: "job",
+                title: "Job",
+                select: "jobs",
+                field: "job"
+            },
+            name: {
+                name: "lastName",
+                title: "Name",
+                select: "students",
+                field: "lastName"
+            },
             todo: {
                 name: "title",
                 title: "ToDo"
+            },
+            begin: {
+                name: "begin",
+                title: "Begin"
+            },
+            costs: {
+                name: "costs",
+                title: "Costs"
             }
         },
         data: []
@@ -202,28 +223,28 @@ var myApp = {
     var dbUser = 'p-todo';
     var dbPass = 'demo01';
     db = new PouchDB(dbName);
-    dbId = cookie('dbId');
-    if (dbId === null) {
-        dbId = Math.random();
-        cookie('dbId', dbId, 3650)
+    dbIdPrivate = cookie('dbId');
+    if (dbIdPrivate === null) {
+        dbIdPrivate = Math.random();
+        cookie('dbId', dbIdPrivate, 3650)
     }
-    db.get(dbId + '_login').then(function (doc) {
+    db.get(dbIdPrivate + '_login').then(function (doc) {
         if (doc !== null) {
             dbUser = doc.dbUser;
             dbPass = doc.dbPass;
-            dbId = doc.dbId;
+            dbIdPublic = doc.dbId;
         }
     }).catch(function (err) {
 // Login-Formular    
         db.put({
-            _id: dbId + '_login',
+            _id: dbIdPrivate + '_login',
             type: 'db',
             dbServer: dbServer,
             dbPort: dbPort,
             dbUser: dbUser,
             dbPass: dbPass,
-            dbId: dbId,
-            title: dbId + '_login'
+            dbId: dbIdPublic,
+            title: dbIdPublic + '_login'
         }).then(function (response) {
 // handle response
         }).catch(function (err) {
@@ -248,7 +269,7 @@ var myApp = {
     function addTodo(text) {
         var id = new Date().toISOString();
         var doc = {
-            _id: dbId + '_todo' + id,
+            _id: dbIdPublic + '_todo' + id,
             title: text,
             completed: false
         };
@@ -264,16 +285,16 @@ var myApp = {
         db.allDocs({
             include_docs: true,
             descending: true,
-            startkey: dbId + '_todo3',
-            endkey: dbId + '_todo'},
+            startkey: dbIdPublic + '_todo3',
+            endkey: dbIdPublic + '_todo'},
                 function (err, doc) {
                     redrawUI('todo-list', doc.rows);
                 });
         db.allDocs({
             include_docs: true,
             descending: true,
-            startkey: dbId + '_para3',
-            endkey: dbId + '_para'},
+            startkey: dbIdPrivate + '_para3',
+            endkey: dbIdPrivate + '_para'},
                 function (err, doc) {
                     redrawUI('para-list', doc.rows);
                 });
@@ -458,6 +479,9 @@ var myApp = {
                     doc[this.name] = $('#' + seite + '_' + this.name).val();
                 });
                 setSync(doc, 'upd');
+                if (seite === "login") {
+                    dbIdPublic = doc.dbId;
+                }
                 db.put(doc).then(function (doc2) {
                     console.log(doc2);
 
@@ -509,10 +533,12 @@ var myApp = {
             }
         });
         result += '<br /><br />';
+        /*
         result += '<input type="button" value="Parameter" onclick="show_element(\'parameter\')" />';
         result += '<input type="button" value="Syncronisation" onclick="show_element(\'sync\')" />';
         result += '<input type="button" name="m_send" value="Send to Server" id="m_send" onclick="CouchdbStoreWrite()" />';
         result += '<input type="button" name="m_read" value="Read from Server" id="m_read" onclick="CouchdbStoreRead()" />';
+        */
         result += '<input type="checkbox" id="showDeleted" onchange="show_element(\'\')"> showDeleted';
         $("#mainmenu").html(result);
     }
@@ -564,12 +590,18 @@ function show_all_header(s) {
 }
 
 function show_all(table) {
+    var dbId;
+    if (table =="login") {
+        dbId = dbIdPrivate;
+    } else {
+        dbId = dbIdPublic;
+    }
     console.log(dbId + '_' + table);
 //    db.allDocs({
 //        include_docs: true
 //        , descending: true
-//        , startkey: dbId + '_' + table + '3'//+ table 
-//        , endkey: dbId + '_' + table  //+ table
+//        , startkey: dbIdPublic + '_' + table + '3'//+ table 
+//        , endkey: dbIdPublic + '_' + table  //+ table
 //    PouchDB.debug.enable('pouchdb:find');
     
     var mySelektor = {
@@ -671,7 +703,7 @@ function show_seite(aktiveSeite) {
 function select(table, id, name, field) {
     db.find({
         selector: {
-            _id: {$gte: dbId + '_' + table, $lte: dbId + '_' + table +'3'},
+            _id: {$gte: dbIdPublic + '_' + table, $lte: dbIdPublic + '_' + table +'3'},
             DBdeleted: {$exists: false}
         }
 
@@ -728,6 +760,6 @@ function setSync(myObj, state) {
     }
 
     if (!myObj._id)
-        myObj._id = dbId + '_' + seite + '2' + (S4() + S4() + "-" + S4() + "-4" + S4().substr(0, 3) + "-" + S4() + "-" + S4() + S4() + S4()).toLowerCase();
+        myObj._id = dbIdPublic + '_' + seite + '2' + (S4() + S4() + "-" + S4() + "-4" + S4().substr(0, 3) + "-" + S4() + "-" + S4() + S4() + S4()).toLowerCase();
 }
 
