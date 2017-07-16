@@ -1,6 +1,4 @@
 var db;
-var dbIdPublic;
-var dbIdPrivate;
 var seite = "";
 var myApp = {
     horse: {
@@ -31,7 +29,7 @@ var myApp = {
         header: {
             horse: {
                 name: "horse",
-                title: "Horse",
+                title: "Pferd",
                 select: "horse",
                 field: "name"
             }
@@ -62,7 +60,7 @@ var myApp = {
             },
             lastName: {
                 name: "lastName",
-                title: "LastName"
+                title: "Name"
             },
             job: {
                 name: "job",
@@ -111,6 +109,12 @@ var myApp = {
         title: "ToDo",
         menu: true,
         fields: {
+            horse: {
+                name: "horse",
+                title: "Pferd",
+                select: "horse",
+                field: "name"
+            },
             job: {
                 name: "job",
                 title: "Job",
@@ -129,11 +133,16 @@ var myApp = {
             },
             begin: {
                 name: "begin",
-                title: "Begin"
+                title: "Beginn"
             },
             costs: {
                 name: "costs",
-                title: "Costs"
+                title: "Kosten"
+            },
+            done: {
+                name: "done",
+                title: "Erledigt",
+                type: "checkbox"
             }
         },
         data: []
@@ -151,6 +160,10 @@ var myApp = {
                 name: "dbPort",
                 title: "Port"
             },
+            dbName: {
+                name: "dbName",
+                title: "Datenbank"
+            },
             dbUser: {
                 name: "dbUser",
                 title: "User"
@@ -161,7 +174,15 @@ var myApp = {
             },
             dbId: {
                 name: "dbId",
-                title: "db"
+                title: "Prefix"
+            },
+            appTitle: {
+                name: "appTitle",
+                title: "Titel"
+            },
+            appHorsename: {
+                name: "appHorsename",
+                title: "Thema"
             }
         },
         data: []
@@ -209,30 +230,49 @@ var myApp = {
 
 };
 
+var dbName = 'p-todo';
+/*var dbServer = 'http://fhem.fritz.box';
+var dbPort = '5984';
+var dbUser = 'p-todo';
+var dbPass = 'demo01';*/
+var dbServer = '';
+var dbPort = '';
+var dbUser = '';
+var dbPass = '';
+
+var dbIdPublic;        //couchdb
+var dbIdPrivate;       //pouchdb
+var remote;            //couchdb
+
 (function () {
 
     'use strict';
+    var dbNameLocal = 'p-todo'; //pouchdb
+    var appTitle = 'Horse:: Diary';
+    $('#appTitle').html(appTitle);
+
     var ENTER_KEY = 13;
-    var newTodoDom = document.getElementById('new-todo');
-    var newParaDom = document.getElementById('new-para');
     var syncDom = document.getElementById('sync-wrapper');
     // EDITING STARTS HERE (you dont need to edit anything above this line)
-    var dbServer = 'http://fhem.fritz.box';
-    var dbPort = '5984';
-    var dbName = 'p-todo';
-    var dbUser = 'p-todo';
-    var dbPass = 'demo01';
     db = new PouchDB(dbName);
     dbIdPrivate = cookie('dbId');
     if (dbIdPrivate === null) {
         dbIdPrivate = Math.random();
-        cookie('dbId', dbIdPrivate, 3650)
+        cookie('dbId', dbIdPrivate, 3650);
     }
     db.get(dbIdPrivate + '_login').then(function (doc) {
         if (doc !== null) {
+            dbServer = doc.dbServer;
+            dbPort = doc.dbPort;
+            dbName = doc.dbName;
             dbUser = doc.dbUser;
             dbPass = doc.dbPass;
             dbIdPublic = doc.dbId;
+            appTitle = doc.appTitle;
+            myApp.horse.title = doc.appHorsename;
+            $('#appTitle').html(appTitle);
+            $('#m_horse').val(myApp.horse.title);
+            remoteLogin();
         }
     }).catch(function (err) {
 // Login-Formular    
@@ -241,48 +281,28 @@ var myApp = {
             type: 'db',
             dbServer: dbServer,
             dbPort: dbPort,
+            dbName: dbName,
             dbUser: dbUser,
             dbPass: dbPass,
             dbId: dbIdPublic,
             title: dbIdPublic + '_login'
         }).then(function (response) {
-// handle response
+            // handle response
+            remoteLogin();
         }).catch(function (err) {
             console.log(err);
         });
     });
-    var remote = new PouchDB(dbServer + ':' + dbPort + '/' + dbName, {skip_setup: true});
-    remote.login(dbUser, dbPass, function (err, response) {
-        if (err) {
-            if (err.name === 'unauthorized') {
-                // name or password incorrect
-            } else {
-                // cosmic rays, a meteor, etc.
-            }
-        }
-    });
+    
     db.changes({
         since: 'now',
         live: true
     }).on('change', showDocs);
-    // We have to create a new todo document and enter it in the database
-    function addTodo(text) {
-        var id = new Date().toISOString();
-        var doc = {
-            _id: dbIdPublic + '_todo' + id,
-            title: text,
-            completed: false
-        };
-        db.put(doc, function callback(err, result) {
-            if (!err) {
-                console.log('Successfully posted a document!');
-            }
-        });
-    }
+    
 
     // Show the current list of todos by reading them from the database
     function showDocs() {
-        db.allDocs({
+/*        db.allDocs({
             include_docs: true,
             descending: true,
             startkey: dbIdPublic + '_todo3',
@@ -298,30 +318,24 @@ var myApp = {
                 function (err, doc) {
                     redrawUI('para-list', doc.rows);
                 });
+*/
     }
-
-    function checkboxChanged(todo, event) {
-        todo.completed = event.target.checked;
-        db.put(todo);
+    
+    function remoteLogin() {
+        remote = new PouchDB(dbServer + ':' + dbPort + '/' + dbName, {skip_setup: true});
+        remote.login(dbUser, dbPass, function (err, response) {
+            if (err) {
+                if (err.name === 'unauthorized') {
+                    // name or password incorrect
+                } else {
+                    // cosmic rays, a meteor, etc.
+                }
+            } else {
+                sync();
+            }
+        });        
     }
-
-    // User pressed the delete button for a todo, delete it
-    function deleteButtonPressed(todo) {
-        db.remove(todo);
-    }
-
-    // The input box when editing a todo has blurred, we should save
-    // the new title or delete the todo if the title is empty
-    function todoBlurred(todo, event) {
-        var trimmedText = event.target.value.trim();
-        if (!trimmedText) {
-            db.remove(todo);
-        } else {
-            todo.title = trimmedText;
-            db.put(todo);
-        }
-    }
-
+    
     // Initialise a sync with the remote server
     function sync() {
         syncDom.setAttribute('data-sync-state', 'syncing');
@@ -329,7 +343,7 @@ var myApp = {
         }).on('change', function (info) {
             syncDom.innerHTML = 'change ' + info;
         }).on('paused', function (err) {
-            syncDom.innerHTML = 'paused ' + err;
+            syncDom.innerHTML = 'paused ' + (err ? err : '');
         }).on('active', function () {
             syncDom.innerHTML = 'active ';
         }).on('denied', function (err) {
@@ -348,100 +362,25 @@ var myApp = {
     function syncError() {
         syncDom.setAttribute('data-sync-state', 'error');
     }
-
-    // User has double clicked a todo, display an input so they can edit the title
-    function todoDblClicked(todo) {
-        var div = document.getElementById('li_' + todo._id);
-        var inputEditTodo = document.getElementById('input_' + todo._id);
-        div.className = 'editing';
-        inputEditTodo.focus();
-    }
-
-    // If they press enter while editing an entry, blur it to trigger save
-    // (or delete)
-    function todoKeyPressed(todo, event) {
-        if (event.keyCode === ENTER_KEY) {
-            var inputEditTodo = document.getElementById('input_' + todo._id);
-            inputEditTodo.blur();
-        }
-    }
-
-    // Given an object representing a todo, this will create a list item
-    // to display it.
-    function createTodoListItem(todo) {
-        var checkbox = document.createElement('input');
-        checkbox.className = 'toggle';
-        checkbox.type = 'checkbox';
-        checkbox.addEventListener('change', checkboxChanged.bind(this, todo));
-        var label = document.createElement('label');
-        label.appendChild(document.createTextNode(todo.title));
-        label.addEventListener('dblclick', todoDblClicked.bind(this, todo));
-        var deleteLink = document.createElement('button');
-        deleteLink.className = 'destroy';
-        deleteLink.addEventListener('click', deleteButtonPressed.bind(this, todo));
-        var divDisplay = document.createElement('div');
-        divDisplay.className = 'view';
-        divDisplay.appendChild(checkbox);
-        divDisplay.appendChild(label);
-        divDisplay.appendChild(deleteLink);
-        var inputEditTodo = document.createElement('input');
-        inputEditTodo.id = 'input_' + todo._id;
-        inputEditTodo.className = 'edit';
-        inputEditTodo.value = todo.title;
-        inputEditTodo.addEventListener('keypress', todoKeyPressed.bind(this, todo));
-        inputEditTodo.addEventListener('blur', todoBlurred.bind(this, todo));
-        var li = document.createElement('li');
-        li.id = 'li_' + todo._id;
-        li.appendChild(divDisplay);
-        li.appendChild(inputEditTodo);
-        if (todo.completed) {
-            li.className += 'complete';
-            checkbox.checked = true;
-        }
-
-        return li;
-    }
-
-    function redrawUI(section, docs) {
-        var ul = document.getElementById(section);
-        ul.innerHTML = '';
-        docs.forEach(function (doc) {
-            ul.appendChild(createTodoListItem(doc.doc));
-        });
-    }
-
-    function newTodoKeyPressHandler(event) {
-        if (event.keyCode === ENTER_KEY) {
-            addTodo(newTodoDom.value);
-            newTodoDom.value = '';
-        }
-    }
-    function newParaKeyPressHandler(event) {
-        if (event.keyCode === ENTER_KEY) {
-            addTodo(newParaDom.value);
-            newParaDom.value = '';
-        }
-    }
-
-    function addEventListeners() {
-        /*if (newTodoDom) {
-         newTodoDom.addEventListener('keypress', newTodoKeyPressHandler, false);
-         }
-         if (newParaDom) {
-         newParaDom.addEventListener('keypress', newParaKeyPressHandler, false);
-         }*/
-    }
-
+    
+    
+    
     // Code for Add New Record in IndexedDB
     $("#addBtn").click(function () {
         //debugger;
         var myObj = {};
         setSync(myObj, 'add');
         $.each(myApp[seite].header, function () {
-            myObj[this.name] = $('#' + seite + '_' + this.name).val();
+            if(this.type === "checkbox")
+                myObj[this.name] = $('#' + seite + '_' + this.name).prop( "checked" );
+            else
+                myObj[this.name] = $('#' + seite + '_' + this.name).val();
         });
         $.each(myApp[seite].fields, function () {
-            myObj[this.name] = $('#' + seite + '_' + this.name).val();
+            if(this.type === "checkbox")
+                myObj[this.name] = $('#' + seite + '_' + this.name).prop( "checked" );
+            else
+                myObj[this.name] = $('#' + seite + '_' + this.name).val();
         });
         //var myDoc = array2json(myObj);
         console.log(myObj);
@@ -473,14 +412,24 @@ var myApp = {
             // handle doc
             if (doc) {
                 $.each(myApp[seite].header, function () {
-                    doc[this.name] = $('#' + seite + '_' + this.name).val();
+                    if(this.type === "checkbox")
+                        doc[this.name] = $('#' + seite + '_' + this.name).prop( "checked" );
+                    else
+                        doc[this.name] = $('#' + seite + '_' + this.name).val();
                 });
                 $.each(myApp[seite].fields, function () {
-                    doc[this.name] = $('#' + seite + '_' + this.name).val();
+                    if(this.type === "checkbox")
+                        doc[this.name] = $('#' + seite + '_' + this.name).prop( "checked" );
+                    else
+                        doc[this.name] = $('#' + seite + '_' + this.name).val();
                 });
                 setSync(doc, 'upd');
                 if (seite === "login") {
                     dbIdPublic = doc.dbId;
+                    appTitle = doc.appTitle;
+                    myApp.horse.title = doc.appHorsename;
+                    $('#appTitle').html(appTitle);
+                    $('#m_horse').val(myApp.horse.title);
                 }
                 db.put(doc).then(function (doc2) {
                     console.log(doc2);
@@ -545,10 +494,8 @@ var myApp = {
 
 
     mainmenu();
-    addEventListeners();
-    showDocs();
     if (syncDom) {
-        sync();
+        
     }
 
 })();
@@ -580,7 +527,9 @@ function show_all_header(s) {
     //table += '<th>ID</th>';
     //var cb = $('#showDeleted');
     if ($('#showDeleted').is(':checked')) {
-        table += '<th>Deleted?</th>';
+        table += '<th id="disabled">Deleted?</th>';
+    } else {
+        table += '<th id="disabled"></th>'
     }
     $.each(myApp[seite].fields, function () {
         table += '<th>' + this.title + '</th>';
@@ -606,7 +555,6 @@ function show_all(table) {
     
     var mySelektor = {
             _id: {$gte: dbId + '_' + table, $lte: dbId + '_' + table +'3'}
-            //, DBdeleted: {$exists: false}
         };
     if (!$('#showDeleted').is(':checked')) {
         mySelektor.DBdeleted = {$exists: false};
@@ -618,7 +566,7 @@ function show_all(table) {
         var table = "";
         $.each(result.docs, function () {
             var s = this;
-            console.log(s);
+            //console.log(s);
             if (first) {
                 first = false;
                 table = show_all_header(s);
@@ -626,6 +574,8 @@ function show_all(table) {
             table += '<tr>';
             if ($('#showDeleted').is(':checked')) {
                 table += '<td>' + (this.DBdeleted ? '*' : '&nbsp') + '</td>';
+            } else {
+                table += '<td>&nbsp;</td>';
             }
             $.each(myApp[seite].fields, function () {
                 if (this.select) {
@@ -633,6 +583,8 @@ function show_all(table) {
                 } else if (this.func) {
                     table += '<td onclick="show_data(\'' + s['_id'] + '\')" >' + s[this.name] + '</td>';
                     //	table += '<td onclick="show_data(\'' + s['_id'] + '\')" >' + myApp[this.func](s[this.name]) + '</td>';
+                } else if (this.type === "checkbox") {
+                    table += '<td onclick="show_data(\'' + s['_id'] + '\')" ><input type="' + this.type + '"' + (s[this.name] ? 'checked' : '') + ' disabled></td>';
                 } else {
                     table += '<td onclick="show_data(\'' + s['_id'] + '\')" >' + s[this.name] + '</td>';
                 }
@@ -678,6 +630,8 @@ function show_seite(aktiveSeite) {
         result += '<tr>';
         if (this.select) {
             result += '<td>' + this.title + '</td><td><select type="text" name="' + aktiveSeite + '_' + this.name + '" id="' + aktiveSeite + '_' + this.name + '" class="' + aktiveSeite + '"></select></td>';
+        } else if (this.type) {
+            result += '<td>' + this.title + '</td><td><input type="'+this.type+'" name="' + aktiveSeite + '_' + this.name + '" id="' + aktiveSeite + '_' + this.name + '" /></td>';
         } else {
             result += '<td>' + this.title + '</td><td><input type="text" name="' + aktiveSeite + '_' + this.name + '" id="' + aktiveSeite + '_' + this.name + '" /></td>';
         }
@@ -690,6 +644,8 @@ function show_seite(aktiveSeite) {
         result += '<tr>';
         if (this.select) {
             result += '<td>' + this.title + '</td><td><select type="text" name="' + aktiveSeite + '_' + this.name + '" id="' + aktiveSeite + '_' + this.name + '" class="' + aktiveSeite + '"></select></td>';
+        } else if (this.type) {
+            result += '<td>' + this.title + '</td><td><input type="'+this.type+'" name="' + aktiveSeite + '_' + this.name + '" id="' + aktiveSeite + '_' + this.name + '" /></td>';
         } else {
             result += '<td>' + this.title + '</td><td><input type="text" name="' + aktiveSeite + '_' + this.name + '" id="' + aktiveSeite + '_' + this.name + '" /></td>';
         }
@@ -728,7 +684,10 @@ function show_data(id) {
                 $('#' + seite + '_' + this.name).val(doc[this.name]);
             });
             $.each(myApp[seite].fields, function () {
-                $('#' + seite + '_' + this.name).val(doc[this.name]);
+                if (this.type === "checkbox")
+                    $('#' + seite + '_' + this.name).prop( "checked", (doc[this.name] === true) );//(doc[this.name]);
+                else
+                    $('#' + seite + '_' + this.name).val(doc[this.name]);
             });
             $('#DBTimestamp').html(doc.DBTimestamp);
             $('#DBstate').html(doc.DBstate);

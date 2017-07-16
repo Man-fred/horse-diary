@@ -1,27 +1,28 @@
 CACHE MANIFEST
-# 2017-07-01:v1
+# 2017-07-10:v4
 
 # Explicitly cached 'master entries'.
 CACHE:
 /favicon.ico
-p-todo/index.html
-p-todo/style/base.css
-p-todo/style/bg.png
-p-todo/js/app.js
-p-todo/js/cookie.js
-p-todo/js/jquery-3.2.1.min.js
-p-todo/js/pouchdb.authentication.js
-p-todo/js/pouchdb.find.min.js
-p-todo/js/pouchdb.js
+index.html
+style/base.css
+style/bg.png
+js/app.js
+js/cookie.js
+js/jquery-3.2.1.min.js
+js/pouchdb.authentication.js
+js/pouchdb.find.min.js
+js/pouchdb.js
 
 # Resources that require the user to be online.
 NETWORK:
-login.php
-/myapi
+http://fhem.fritz.box:5984/
+#login.php
+#/myapi
 
 # static.html will be served if main.py is inaccessible
 # offline.jpg will be served in place of all images in images/large/
 # offline.html will be served in place of all other .html files
 FALLBACK:
-/main.py /static.html
-images/large/ images/offline.jpg
+# /main.py /static.html
+# images/large/ images/offline.jpg
